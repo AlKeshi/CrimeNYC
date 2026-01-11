@@ -1,0 +1,478 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{subcaption}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Spatiotemporal Crime Prediction in New York City Using Convolutional LSTM Networks}
+
+\author{
+\IEEEauthorblockN{Salem Fradi}
+\IEEEauthorblockA{\textit{Sup'Com} \\
+Tunis, Tunisia \\
+salemaziz.fradi@supcom.tn}
+\and
+\IEEEauthorblockN{Ghassen Zrigua}
+\IEEEauthorblockA{\textit{Sup'Com} \\
+Tunis, Tunisia \\
+ghassen.zrigua@supcom.tn}
+\and
+\IEEEauthorblockN{Fatma Ben Helal}
+\IEEEauthorblockA{\textit{Sup'Com} \\
+Tunis, Tunisia \\
+fatmaezzahra.benhelal@supcom.tn}
+\and
+\IEEEauthorblockN{Ahmed Essouaied}
+\IEEEauthorblockA{\textit{Sup'Com} \\
+Tunis, Tunisia \\
+ahmed.essouaied@supcom.tn}
+}
+
+\maketitle
+
+\begin{abstract}
+Crime prediction is a critical challenge for urban safety and law enforcement resource allocation. This paper presents a deep learning framework for spatiotemporal crime prediction in New York City using Convolutional LSTM (ConvLSTM) networks. We transform historical NYPD crime complaint data into a grid-based representation and employ a dual-stack ConvLSTM architecture to capture complex spatial and temporal dependencies. Our approach incorporates geographic masking to focus predictions within NYC borough boundaries, ensuring realistic and actionable forecasts. We compare the performance of our deep learning model against two baseline Historical Average (HA) models: global average and weekday-specific average. Experimental results demonstrate that the ConvLSTM architecture effectively captures spatiotemporal crime patterns, achieving masked MSE of 0.7413 and MAE of 0.3997, significantly outperforming the HA global baseline (MSE: 1.1083, RMSE: 1.0527) and HA weekday baseline (MSE: 1.1391, RMSE: 1.0673). Our framework provides law enforcement agencies with data-driven insights for proactive crime prevention strategies.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Crime prediction, Convolutional LSTM, spatiotemporal analysis, deep learning, urban computing, New York City
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Urban crime prediction has emerged as a critical application of machine learning in smart city initiatives. Accurate forecasting of crime patterns enables law enforcement agencies to optimize patrol routes, allocate resources efficiently, and implement proactive intervention strategies. Traditional statistical methods often fail to capture the complex spatiotemporal dependencies inherent in urban crime dynamics, motivating the adoption of deep learning approaches.
+
+New York City, with a population exceeding 8 million and spanning five boroughs (Manhattan, Brooklyn, Queens, The Bronx, and Staten Island), presents unique challenges for crime prediction. The city exhibits heterogeneous crime patterns influenced by diverse socioeconomic factors, population density variations, and complex urban geography. The New York Police Department (NYPD) maintains comprehensive crime complaint databases, providing rich historical data for predictive modeling.
+
+Recent advances in deep learning, particularly Convolutional LSTM (ConvLSTM) networks \cite{shi2015convolutional}, have demonstrated remarkable success in spatiotemporal sequence forecasting tasks. ConvLSTM extends traditional LSTM networks by incorporating convolutional operations, enabling the model to capture both spatial correlations and temporal dependencies simultaneously. This architecture has proven effective in various domains including weather prediction, traffic forecasting, and video frame prediction.
+
+In this work, we develop a ConvLSTM framework specifically designed for NYC crime prediction. Our contributions include:
+
+\begin{itemize}
+    \item A comprehensive data preprocessing pipeline that transforms NYPD crime data into grid-based spatiotemporal representations with geographic masking
+    \item A dual-stack ConvLSTM architecture with 256 total filters that captures complex crime dynamics
+    \item Comparative analysis against baseline Historical Average models (global and weekday-specific)
+    \item Extensive visualization and error analysis to identify spatial patterns in prediction accuracy
+\end{itemize}
+
+The remainder of this paper is organized as follows: Section II reviews related work in crime prediction. Section III describes our data preprocessing methodology, including geographic masking. Section IV presents the ConvLSTM architecture and baseline models. Section V details experimental setup and evaluation metrics. Section VI presents results and comparative analysis. Section VII discusses findings and limitations. Section VIII concludes with future research directions.
+
+\section{Related Work}
+
+Crime prediction has been extensively studied using various machine learning approaches. Traditional methods include autoregressive integrated moving average (ARIMA) models and spatial regression techniques. However, these approaches struggle to capture nonlinear spatiotemporal dependencies.
+
+Recent deep learning methods have shown promising results. Wang et al. \cite{wang2017crime} applied recurrent neural networks (RNNs) for crime hotspot prediction. Huang et al. \cite{huang2018deepcrime} proposed DeepCrime, combining convolutional neural networks (CNNs) with LSTMs for spatiotemporal crime forecasting in Chicago. Stec et al. \cite{stec2018forecasting} utilized ensemble methods combining multiple prediction models.
+
+ConvLSTM networks, introduced by Shi et al. \cite{shi2015convolutional}, have been successfully applied to precipitation nowcasting and traffic prediction. The architecture's ability to preserve spatial structure while modeling temporal sequences makes it particularly suitable for urban crime prediction. Our work extends these concepts by introducing a dual-stack architecture and incorporating geographic masking for boundary-constrained predictions.
+
+\section{Data Preprocessing}
+
+\subsection{Data Sources}
+
+Our study utilizes the following datasets:
+
+\begin{itemize}
+    \item \textbf{NYPD Crime Complaint Data}: Historical crime complaints from 2020 onwards, obtained from NYC Open Data portal, containing geographic coordinates, timestamps, and crime types
+    \item \textbf{NYC Borough Boundaries}: Official shapefile from NYC Department of City Planning (EPSG:4326 WGS84 coordinate system) for geographic masking
+\end{itemize}
+
+\subsection{Preprocessing Pipeline}
+
+The preprocessing pipeline consists of five major steps:
+
+\subsubsection{Data Extraction and Cleaning}
+
+We filter the NYPD complaint database to extract crimes from 2020 onwards, ensuring temporal relevance. Invalid coordinates (zeros, nulls, or values outside NYC bounds) are removed. Temporal features including date, year, and day of week are parsed and validated.
+
+\subsubsection{Grid Creation}
+
+We divide NYC into a rectangular grid overlaying the borough boundaries. The grid is defined in the EPSG:4326 coordinate system to match crime data coordinates. Grid cell size is determined by the bounding box dimensions and desired spatial resolution. Each cell represents a spatial unit for crime aggregation.
+
+\subsubsection{Geographic Masking}
+
+A critical innovation in our approach is geographic masking, which ensures predictions are constrained to valid NYC territory. The algorithm operates as follows:
+
+\begin{algorithmic}
+\FOR{each grid cell $(i, j)$}
+    \STATE Create bounding box from cell coordinates
+    \IF{box does NOT intersect NYC geometry}
+        \STATE mask$[i,j] \leftarrow 0$ (or NaN)
+    \ELSE
+        \STATE mask$[i,j] \leftarrow 1$
+    \ENDIF
+\ENDFOR
+\end{algorithmic}
+
+This binary mask eliminates spurious predictions in water bodies, neighboring states, and areas outside borough boundaries. Figure \ref{fig:mask} illustrates the masked grid structure.
+
+\subsubsection{Temporal Aggregation}
+
+Crime incidents are spatially joined to grid cells using their geographic coordinates. Daily crime counts are computed for each cell, producing a 3D tensor of dimensions $(T, H, W)$ where $T$ represents time steps (days), $H$ is grid height, and $W$ is grid width.
+
+\subsubsection{Train-Test Split}
+
+The dataset is chronologically split into training and testing sets. Training data consists of historical crimes (typically 1-2 years), while the test set contains recent data for evaluation. Data is stored as NumPy arrays for efficient processing.
+
+\subsection{Data Visualization}
+
+Figure \ref{fig:frames} shows temporal evolution of crime distributions across multiple days. The visualizations reveal spatial heterogeneity with higher crime concentrations in Manhattan and specific Brooklyn neighborhoods. Temporal patterns exhibit weekly periodicity with variations between weekdays and weekends.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../visualisation/data/visualisation/frame_1.png}
+\caption{Spatial distribution of daily crime counts across NYC grid. Darker colors indicate higher crime concentrations. Geographic masking ensures predictions are constrained to borough boundaries.}
+\label{fig:mask}
+\end{figure}
+
+\begin{figure*}[htbp]
+\centering
+\begin{subfigure}{0.24\textwidth}
+    \includegraphics[width=\textwidth]{../visualisation/data/visualisation/frame_2.png}
+    \caption{Day 2}
+\end{subfigure}
+\begin{subfigure}{0.24\textwidth}
+    \includegraphics[width=\textwidth]{../visualisation/data/visualisation/frame_3.png}
+    \caption{Day 3}
+\end{subfigure}
+\begin{subfigure}{0.24\textwidth}
+    \includegraphics[width=\textwidth]{../visualisation/data/visualisation/frame_4.png}
+    \caption{Day 4}
+\end{subfigure}
+\begin{subfigure}{0.24\textwidth}
+    \includegraphics[width=\textwidth]{../visualisation/data/visualisation/frame_5.png}
+    \caption{Day 5}
+\end{subfigure}
+\caption{Temporal evolution of crime distributions across consecutive days, showing spatial heterogeneity and temporal dynamics.}
+\label{fig:frames}
+\end{figure*}
+
+\section{Methodology}
+
+\subsection{Problem Formulation}
+
+Let $X^{(t)} \in \mathbb{R}^{H \times W}$ denote the crime distribution grid at time $t$, where each element $x_{ij}^{(t)}$ represents the crime count in cell $(i,j)$ on day $t$. Given a lookback sequence $\{X^{(t-k+1)}, \ldots, X^{(t)}\}$ of $k$ consecutive days, our objective is to predict the crime distribution $X^{(t+1)}$ for the next day.
+
+Let $M \in \{0,1\}^{H \times W}$ denote the geographic mask, where $M_{ij} = 1$ if cell $(i,j)$ lies within NYC boundaries and $M_{ij} = 0$ otherwise. Predictions are constrained such that $\hat{X}^{(t+1)} \odot M = \hat{X}^{(t+1)}$, where $\odot$ denotes element-wise multiplication.
+
+\subsection{ConvLSTM Architecture}
+
+Our ConvLSTM model employs a dual-stack architecture designed to capture diverse spatiotemporal features.
+
+\subsubsection{Network Architecture}
+
+\textbf{Input Layer}: The input tensor has shape $(k, H, W, 1)$, where $k=7$ is the lookback period (7 days), $H$ and $W$ are spatial dimensions, and the channel dimension is 1 (crime counts).
+
+\textbf{Stack 1}:
+\begin{itemize}
+    \item ConvLSTM2D: 128 filters, $3 \times 3$ kernel, tanh activation, return\_sequences=True
+    \item Batch Normalization
+    \item ConvLSTM2D: 128 filters, $3 \times 3$ kernel, tanh activation, return\_sequences=False
+\end{itemize}
+
+\textbf{Stack 2} (parallel to Stack 1):
+\begin{itemize}
+    \item ConvLSTM2D: 128 filters, $3 \times 3$ kernel, tanh activation, return\_sequences=True
+    \item Batch Normalization
+    \item ConvLSTM2D: 128 filters, $3 \times 3$ kernel, tanh activation, return\_sequences=False
+\end{itemize}
+
+\textbf{Fusion and Output}:
+\begin{itemize}
+    \item Concatenation of Stack 1 and Stack 2 outputs (256 filters total)
+    \item Conv2D: 1 filter, $1 \times 1$ kernel, linear activation
+    \item Output shape: $(H, W, 1)$
+\end{itemize}
+
+The dual-stack design enables the model to learn complementary spatiotemporal features, with each stack potentially specializing in different temporal scales or spatial patterns.
+
+\subsubsection{Loss Function}
+
+To enforce geographic constraints, we employ a masked Mean Squared Error (MSE) loss:
+
+\begin{equation}
+\mathcal{L}_{\text{masked}}(Y, \hat{Y}) = \frac{1}{|\Omega|} \sum_{(i,j) \in \Omega} (Y_{ij} - \hat{Y}_{ij} \cdot M_{ij})^2
+\end{equation}
+
+where $Y$ is the ground truth, $\hat{Y}$ is the prediction, $M$ is the geographic mask, and $\Omega = \{(i,j) : M_{ij} = 1\}$ is the set of valid cells.
+
+\subsubsection{Training Configuration}
+
+\begin{itemize}
+    \item \textbf{Optimizer}: Adam with default learning rate
+    \item \textbf{Batch Size}: 4
+    \item \textbf{Lookback Period}: 7 days
+    \item \textbf{Training Metric}: Mean Absolute Error (MAE)
+    \item \textbf{Epochs}: 50 (production); 1 (demonstration)
+\end{itemize}
+
+Training data is generated using Keras TimeseriesGenerator, which creates sliding windows of 7-day sequences. Shuffling is disabled to preserve temporal order.
+
+\subsection{Baseline Models}
+
+We implement two Historical Average (HA) baseline models for comparison:
+
+\subsubsection{HA Global Average}
+
+This baseline computes the spatial average crime distribution over the last 365 days of training data:
+
+\begin{equation}
+\hat{X}_{\text{HA-global}} = \frac{1}{365} \sum_{t=T-365}^{T} X^{(t)} \odot M
+\end{equation}
+
+This prediction is repeated for all test days, capturing overall spatial crime density but ignoring temporal patterns.
+
+\subsubsection{HA Weekday Average}
+
+This baseline accounts for weekly seasonality by computing separate averages for each day of the week (Monday through Sunday):
+
+\begin{equation}
+\hat{X}_{\text{HA-weekday}}^{(d)} = \frac{1}{52} \sum_{w=1}^{52} X^{(t_w^d)} \odot M
+\end{equation}
+
+where $d \in \{0,1,\ldots,6\}$ represents the day of week, and $t_w^d$ denotes the $w$-th occurrence of day $d$ in the last year. Predictions are assigned based on the day of week of each test instance.
+
+\section{Experimental Setup}
+
+\subsection{Dataset Statistics}
+
+Our dataset spans NYPD crime complaints from 2020 to 2023. After preprocessing:
+
+\begin{itemize}
+    \item Training samples: Approximately 700-800 days
+    \item Testing samples: 50-100 days
+    \item Grid dimensions: Variable based on resolution choice
+    \item Valid cells (within NYC): Determined by geographic masking
+\end{itemize}
+
+\subsection{Evaluation Metrics}
+
+We evaluate model performance using three metrics, computed only over valid cells ($M_{ij} = 1$):
+
+\begin{itemize}
+    \item \textbf{Mean Squared Error (MSE)}: $\text{MSE} = \frac{1}{|\Omega|T} \sum_{t=1}^{T} \sum_{(i,j) \in \Omega} (Y_{ij}^{(t)} - \hat{Y}_{ij}^{(t)})^2$
+    \item \textbf{Root Mean Squared Error (RMSE)}: $\text{RMSE} = \sqrt{\text{MSE}}$
+    \item \textbf{Mean Absolute Error (MAE)}: $\text{MAE} = \frac{1}{|\Omega|T} \sum_{t=1}^{T} \sum_{(i,j) \in \Omega} |Y_{ij}^{(t)} - \hat{Y}_{ij}^{(t)}|$
+\end{itemize}
+
+where $T$ is the number of test days, and $\Omega$ is the set of valid grid cells.
+
+\subsection{Implementation Details}
+
+The framework is implemented in Python using:
+\begin{itemize}
+    \item TensorFlow/Keras for deep learning models
+    \item GeoPandas and Shapely for spatial operations
+    \item NumPy for numerical computations
+    \item Matplotlib for visualization
+\end{itemize}
+
+Experiments were conducted on a system with GPU acceleration for ConvLSTM training.
+
+\section{Results and Analysis}
+
+\subsection{Quantitative Performance}
+
+Table \ref{tab:results} presents the quantitative performance of all evaluated models.
+
+\begin{table}[htbp]
+\caption{Performance Comparison of Crime Prediction Models}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{MSE} & \textbf{RMSE} & \textbf{MAE} \\
+\midrule
+HA Global Average & 1.1083 & 1.0527 & -- \\
+HA Weekday Average & 1.1391 & 1.0673 & -- \\
+ConvLSTM & \textbf{0.7413} & \textbf{0.8610} & \textbf{0.3997} \\
+\bottomrule
+\end{tabular}
+\label{tab:results}
+\end{center}
+\end{table}
+
+\textbf{Baseline Analysis}: The HA global baseline achieves MSE of 1.1083 and RMSE of 1.0527, establishing a competitive benchmark. Interestingly, the HA weekday baseline shows slightly higher error (MSE: 1.1391, RMSE: 1.0673), suggesting that weekly periodicity may be weak in NYC crime patterns, or that the simple averaging approach fails to capture nuanced weekly variations.
+
+\textbf{ConvLSTM Performance}: The ConvLSTM model significantly outperforms both baselines by leveraging spatiotemporal dependencies, achieving MSE of 0.7413, RMSE of 0.8610, and MAE of 0.3997. This represents a 33\% improvement in MSE over the HA global baseline and a 35\% improvement over the HA weekday baseline. Results (visualized in Figure \ref{fig:convlstm_results}) demonstrate the model's ability to capture localized crime hotspots and temporal dynamics beyond simple historical averages.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../data/homo_convlstm.png}
+\caption{ConvLSTM prediction results showing predicted crime distribution (left) versus ground truth (right) for a sample test day.}
+\label{fig:convlstm_results}
+\end{figure}
+
+\subsection{Baseline Model Predictions}
+
+Figure \ref{fig:ha_global} illustrates the HA global average predictions, showing the long-term spatial crime density pattern. Figure \ref{fig:ha_weekday} presents a sample weekday-specific prediction.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../data/ha_global_predictions.png}
+\caption{Historical Average (Global) model predictions showing spatial crime density averaged over 365 days. This baseline captures overall crime distribution but lacks temporal adaptability.}
+\label{fig:ha_global}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../data/ha_weekday_predictions.png}
+\caption{Historical Average (Weekday) model predictions for a specific day of the week, incorporating weekly seasonality patterns.}
+\label{fig:ha_weekday}
+\end{figure}
+
+\subsection{Detailed Error Analysis}
+
+Figures \ref{fig:pred_vs_actual} through \ref{fig:total_crimes} provide comprehensive error analysis across various dimensions.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../plots/prediction_vs_actual.png}
+\caption{Side-by-side comparison of predicted versus actual crime distributions, with absolute error map highlighting regions of high prediction uncertainty.}
+\label{fig:pred_vs_actual}
+\end{figure}
+
+\textbf{Spatial Error Distribution}: Figure \ref{fig:spatial_error} reveals that prediction errors are not uniformly distributed. High-error regions often correspond to areas with volatile crime patterns, potentially influenced by special events, seasonal tourism, or socioeconomic changes. Conversely, residential areas with stable crime rates exhibit lower prediction errors.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../plots/spatial_error_distribution.png}
+\caption{Spatial distribution of prediction errors across NYC grid. Warmer colors indicate higher average prediction errors, revealing geographic patterns in model performance.}
+\label{fig:spatial_error}
+\end{figure}
+
+\textbf{Temporal Error Dynamics}: Figure \ref{fig:error_timeline} shows how prediction errors evolve over the test period. The relatively stable error metrics indicate consistent model performance without significant degradation over time.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../plots/error_metrics_timeline.png}
+\caption{Temporal evolution of error metrics (MSE, RMSE, MAE) across the test period, demonstrating model stability and consistency.}
+\label{fig:error_timeline}
+\end{figure}
+
+\textbf{Aggregate Crime Volume}: Figure \ref{fig:total_crimes} compares total predicted versus actual crime counts. The close alignment demonstrates the model's ability to preserve overall crime volume, even if individual cell-level predictions contain errors.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../plots/total_crimes_comparison.png}
+\caption{Comparison of total predicted versus actual crime counts across all test days, showing the model's ability to forecast aggregate crime volume.}
+\label{fig:total_crimes}
+\end{figure}
+
+\subsection{Model Comparison}
+
+Comparing the three approaches:
+
+\begin{enumerate}
+    \item \textbf{HA Global}: Simple, computationally efficient, captures long-term spatial patterns. Weakness: Cannot adapt to temporal changes or weekly patterns.
+
+    \item \textbf{HA Weekday}: Incorporates weekly seasonality. Surprisingly performs worse than global average, suggesting either weak weekly periodicity in NYC crime or insufficient data for robust weekday estimates.
+
+    \item \textbf{ConvLSTM}: Most complex, captures spatiotemporal dependencies. Advantages: adapts to recent trends, learns spatial correlations, handles nonlinear patterns. Achieves 33-35\% error reduction over baselines. Challenges: requires substantial training data and computational resources.
+\end{enumerate}
+
+The dual-stack architecture in our ConvLSTM model allows for learning complementary features, potentially capturing both short-term fluctuations (one stack) and longer-term trends (another stack).
+
+\section{Discussion}
+
+\subsection{Key Findings}
+
+Our study demonstrates that geographic masking is essential for realistic urban crime prediction. Without masking, models would generate spurious predictions in water bodies and areas outside city boundaries, reducing practical utility for law enforcement.
+
+The competitive performance of the simple HA global baseline highlights the importance of spatial crime density patterns. Historical crime distributions provide strong predictive signals, establishing a high bar for more complex models.
+
+The underperformance of the HA weekday baseline suggests that weekly patterns may be less pronounced in NYC compared to other cities, or that the last-52-weeks averaging approach is too simplistic to capture nuanced temporal patterns.
+
+\subsection{Spatial Insights}
+
+Our error analysis reveals geographic heterogeneity in prediction accuracy. High-error regions may benefit from:
+\begin{itemize}
+    \item Incorporation of additional features (demographics, points of interest, transit hubs)
+    \item Higher spatial resolution to capture localized hotspots
+    \item Separate models for different crime types (violent vs. property crimes)
+\end{itemize}
+
+\subsection{Limitations}
+
+Several limitations warrant consideration:
+
+\begin{enumerate}
+    \item \textbf{Single-day Forecasting}: Our model predicts only one day ahead. Multi-step forecasting would be more valuable for strategic planning.
+
+    \item \textbf{Crime Type Aggregation}: We treat all crimes uniformly. Different crime types (assault, burglary, vandalism) may have distinct spatiotemporal patterns requiring specialized models.
+
+    \item \textbf{Limited External Features}: The current model uses only historical crime counts. Weather, special events, socioeconomic indicators, and temporal features (holidays, weekends) could enhance predictions.
+
+    \item \textbf{Grid Resolution}: Fixed grid resolution may smooth localized hotspots. Adaptive grids or point-based methods could improve fine-grained predictions.
+
+    \item \textbf{Temporal Coverage}: Data from 2020 onwards includes the COVID-19 pandemic period, which significantly altered crime patterns. Model generalization to post-pandemic conditions requires careful validation.
+\end{enumerate}
+
+\subsection{Practical Implications}
+
+For law enforcement applications, our framework provides:
+\begin{itemize}
+    \item \textbf{Proactive Deployment}: Predicted crime hotspots can guide patrol route optimization
+    \item \textbf{Resource Allocation}: High-risk areas identified for increased surveillance
+    \item \textbf{Temporal Planning}: Day-ahead forecasts enable shift scheduling and personnel assignment
+    \item \textbf{Boundary Awareness}: Geographic masking ensures predictions are actionable within jurisdictional boundaries
+\end{itemize}
+
+\section{Conclusion and Future Work}
+
+This paper presented a comprehensive spatiotemporal crime prediction framework for New York City using ConvLSTM networks. Our dual-stack architecture, combined with geographic masking, provides a principled approach to boundary-constrained crime forecasting. The ConvLSTM model achieves significant performance improvements with MSE of 0.7413 and MAE of 0.3997, representing 33-35\% error reduction over Historical Average baselines. Comparative analysis established performance benchmarks and revealed insights into temporal patterns in NYC crime.
+
+Future research directions include:
+
+\begin{enumerate}
+    \item \textbf{Multi-step Forecasting}: Extend the model to predict 7-14 days ahead using sequence-to-sequence architectures or iterative refinement.
+
+    \item \textbf{Crime Type Specialization}: Develop separate models for violent crimes, property crimes, and other categories, potentially using multi-task learning.
+
+    \item \textbf{Feature Engineering}: Integrate weather data, demographic information, points of interest (bars, transit stations, schools), and temporal features (holidays, major events).
+
+    \item \textbf{Attention Mechanisms}: Incorporate spatial and temporal attention to focus on relevant regions and time periods.
+
+    \item \textbf{Uncertainty Quantification}: Provide prediction confidence intervals using Bayesian deep learning or ensemble methods.
+
+    \item \textbf{Transfer Learning}: Pre-train models on other cities (Chicago, Los Angeles) and fine-tune on NYC for improved data efficiency.
+
+    \item \textbf{Real-time System}: Develop a streaming pipeline for continuous model updates and real-time predictions.
+
+    \item \textbf{Interpretability}: Apply explainable AI techniques to understand which spatiotemporal patterns drive predictions, building trust with law enforcement stakeholders.
+\end{enumerate}
+
+By advancing crime prediction methodologies, our work contributes to safer, more resilient urban environments through data-driven public safety strategies.
+
+\section*{Acknowledgment}
+
+The authors acknowledge NYC Open Data for providing public access to NYPD crime complaint data and NYC Department of City Planning for borough boundary shapefiles. We thank the open-source community for TensorFlow, GeoPandas, and related libraries that enabled this research.
+
+\begin{thebibliography}{00}
+
+\bibitem{shi2015convolutional} X. Shi, Z. Chen, H. Wang, D.-Y. Yeung, W.-K. Wong, and W.-C. Woo, ``Convolutional LSTM Network: A Machine Learning Approach for Precipitation Nowcasting,'' in \textit{Advances in Neural Information Processing Systems}, 2015, pp. 802--810.
+
+\bibitem{wang2017crime} H. Wang, D. Kifer, C. Graif, and Z. Li, ``Crime Rate Inference with Big Data,'' in \textit{Proceedings of the 23rd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining}, 2017, pp. 635--644.
+
+\bibitem{huang2018deepcrime} C. Huang, C. Zhang, J. Zhao, X. Wu, D. Yin, and N. Chawla, ``DeepCrime: Attentive Hierarchical Recurrent Networks for Crime Prediction,'' in \textit{Proceedings of the 27th ACM International Conference on Information and Knowledge Management}, 2018, pp. 1423--1432.
+
+\bibitem{stec2018forecasting} A. Stec and D. Klabjan, ``Forecasting Crime with Deep Learning,'' \textit{arXiv preprint arXiv:1806.01486}, 2018.
+
+\bibitem{nypd_data} NYC Open Data, ``NYPD Complaint Data Historic,'' \url{https://data.cityofnewyork.us/Public-Safety/NYPD-Complaint-Data-Historic/qgea-i56i}, accessed: 2024.
+
+\bibitem{nyc_shapefile} NYC Department of City Planning, ``Borough Boundaries,'' \url{https://data.cityofnewyork.us/City-Government/Borough-Boundaries/tqmj-j8zm}, accessed: 2024.
+
+\end{thebibliography}
+
+\end{document}
