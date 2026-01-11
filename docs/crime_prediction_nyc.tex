@@ -196,7 +196,14 @@ Our ConvLSTM model employs a dual-stack architecture designed to capture diverse
     \item Output shape: $(H, W, 1)$
 \end{itemize}
 
-The dual-stack design enables the model to learn complementary spatiotemporal features, with each stack potentially specializing in different temporal scales or spatial patterns.
+The dual-stack design enables the model to learn complementary spatiotemporal features, with each stack potentially specializing in different temporal scales or spatial patterns. Figure \ref{fig:architecture} illustrates the complete ConvLSTM architecture.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\textwidth]{../diagram.png}
+\caption{ConvLSTM network architecture showing the dual-stack design with parallel ConvLSTM layers, batch normalization, concatenation, and final convolutional output layer for spatiotemporal crime prediction.}
+\label{fig:architecture}
+\end{figure}
 
 \subsubsection{Loss Function}
 
