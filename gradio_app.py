@@ -86,6 +86,10 @@ N_Y_CELLS = 67
 N_X_CELLS = 50
 MAX_FORECAST_DAY = predictions.shape[0]  # 358 days
 
+# Training date range (data starts from 2020-01-01)
+TRAIN_START_DATE = "2020-01-01"
+TRAIN_END_DATE = "2024-01-01"
+
 
 def create_crime_map(forecast_day):
     """
@@ -209,10 +213,12 @@ def predict_crimes(forecast_day):
 
 # Create Gradio interface
 with gr.Blocks(title="NYC Crime Prediction Map") as demo:
-    gr.Markdown("""
+    gr.Markdown(f"""
     # NYC Crime Prediction - Interactive Map
 
     This application displays predicted crime counts across New York City using a ConvLSTM model.
+
+    **Training Period:** {TRAIN_START_DATE} to {TRAIN_END_DATE}
 
     **Instructions:**
     - Enter a forecast day (1-358) representing days after the last training day
@@ -249,9 +255,10 @@ with gr.Blocks(title="NYC Crime Prediction Map") as demo:
         outputs=[map_output, summary_output]
     )
 
-    gr.Markdown("""
+    gr.Markdown(f"""
     ---
     **Notes:**
+    - **Training period:** {TRAIN_START_DATE} to {TRAIN_END_DATE} (1462 days)
     - Grid dimensions: 67 × 50 cells covering NYC
     - Only cells within NYC boundaries are shown (ocean/outside areas are masked)
     - Predictions are based on a ConvLSTM model trained on historical NYPD crime data
