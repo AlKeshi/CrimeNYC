@@ -220,12 +220,6 @@ Heatmap showing average error per grid cell, highlighting geographic regions whe
 
 Aggregate crime counts: predicted vs actual, showing the model's ability to predict overall crime volume.
 
-**5. Error Distribution**
-
-![Error Distribution](plots/error_distribution.png)
-
-Histogram and box plot of prediction errors with statistical analysis (mean, median, percentiles).
-
 
 ### Key Findings
 
